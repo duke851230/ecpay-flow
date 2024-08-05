@@ -12,6 +12,17 @@ from .models import Order
 from .forms import OrderForm
 
 
+def _generate_check_mac_value(parameters):
+    key = 'pwFHCqoQZGmho4w6'
+    iv = 'EkRm7iFT261dpevs'
+
+    ordered_params = sorted(parameters.items())
+    raw = '&'.join([f'{k}={v}' for k, v in ordered_params])
+    raw = f'HashKey={key}&{raw}&HashIV={iv}'
+    check_mac_value = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
+    return check_mac_value
+
+
 class CreateOrderView(View):
     def post(self, request: HttpRequest):
         request_body: str = request.body.decode('utf-8')
@@ -33,8 +44,6 @@ class ProcessPaymentView(View):
         print(f"ProcessPaymentView's {order_id=}")
         order = Order.objects.get(order_id=order_id)
         merchant_id = '3002607'
-        key = 'pwFHCqoQZGmho4w6'
-        iv = 'EkRm7iFT261dpevs'
         endpoint = 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'
         return_url = request.build_absolute_uri(reverse('payment_callback'))
         order_result_url = request.build_absolute_uri(reverse('payment_result'))
@@ -57,23 +66,23 @@ class ProcessPaymentView(View):
             'EncryptType': 1,
         }
         
-        # 產生檢查碼
-        def generate_check_mac_value(parameters, key, iv):
-            ordered_params = sorted(parameters.items())
-            raw = '&'.join([f'{k}={v}' for k, v in ordered_params])
-            raw = f'HashKey={key}&{raw}&HashIV={iv}'
-            check_mac_value = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
-            return check_mac_value
-
-        parameters['CheckMacValue'] = generate_check_mac_value(parameters, key, iv)
+        parameters['CheckMacValue'] = _generate_check_mac_value(parameters)
         
         # 返回支付表單數據
         return JsonResponse({'parameters': parameters, 'endpoint': endpoint}, status=200)
 
 @csrf_exempt
 def payment_callback(request: HttpRequest):
-    print(111111111111111111111111111111)
-    print(f"{request.POST=}")
-    print(f"{request.body=}")
-    return HttpResponse("1|OK")
+    if request.method == "POST":
+        data: dict = request.POST.dict()
+        print(f"payment_callback's {data=}")
+        received_check_mac_value = data.pop('CheckMacValue', None)
+        generated_check_mac_value = _generate_check_mac_value(data)
+
+        print(f"In payment_callback, {received_check_mac_value=}, {generated_check_mac_value=}")
+
+        if received_check_mac_value == generated_check_mac_value:
+            return HttpResponse("1|OK")
+        else:
+            raise Exception("Mac Value Error!!")
 
