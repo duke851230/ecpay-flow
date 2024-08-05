@@ -17,6 +17,7 @@ def _generate_check_mac_value(parameters):
     iv = 'EkRm7iFT261dpevs'
 
     ordered_params = sorted(parameters.items())
+    print(f"{ordered_params=}")
     raw = '&'.join([f'{k}={v}' for k, v in ordered_params])
     raw = f'HashKey={key}&{raw}&HashIV={iv}'
     check_mac_value = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
