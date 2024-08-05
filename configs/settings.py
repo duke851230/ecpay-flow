@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-$k2z9mf&0rtr!yw1t-esk#ap@_1%=&1fhjv!)lxaj6*!m3)49p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['ecpay-flow.onrender.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'ecpay-flow.onrender.com']
 
 
 # Application definition

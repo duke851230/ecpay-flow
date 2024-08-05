@@ -4,8 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            transition-duration: 0.4s;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+        button:hover {
+            background-color: white;
+            color: black;
+            border: 2px solid #4CAF50;
+        }
+        .container {
+            text-align: center;
+        }
+        .loader {
+            border: 16px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 16px solid #3498db;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+            display: none;
+            margin-top: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
     <script>
         async function createOrder() {
+            document.getElementById('loader').style.display = 'block';
             const response = await fetch('/backend/create_order/', {
                 method: 'POST',
                 headers: {
@@ -19,6 +72,7 @@
             });
             const data = await response.json();
             console.log(data);
+            document.getElementById('loader').style.display = 'none';
             if (response.status === 201) {
                 // 發送支付請求
                 processPayment(data.order_id);
@@ -54,7 +108,10 @@
     </script>
 </head>
 <body>
-    <h1>Welcome to the Frontend</h1>
-    <button onclick="createOrder()">Create Order</button>
+    <div class="container">
+        <h1>Welcome to the Frontend</h1>
+        <button onclick="createOrder()">Create Order</button>
+        <div id="loader" class="loader"></div>
+    </div>
 </body>
 </html>
