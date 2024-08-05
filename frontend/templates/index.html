@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend</title>
+    <script>
+        async function createOrder() {
+            const response = await fetch('/backend/create_order/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    order_id: "order" + Date.now().toString(),
+                    amount: 10
+                })
+            });
+            const data = await response.json();
+            console.log(data);
+            if (response.status === 201) {
+                // 發送支付請求
+                processPayment(data.order_id);
+            }
+        }
+
+        async function processPayment(order_id) {
+            const response = await fetch(`/backend/process_payment/${order_id}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            const data = await response.json();
+            console.log(data);
+            if (response.status === 200) {
+                // 自動提交支付表單
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = data.endpoint;
+                Object.keys(data.parameters).forEach(key => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = data.parameters[key];
+                    form.appendChild(input);
+                });
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Welcome to the Frontend</h1>
+    <button onclick="createOrder()">Create Order</button>
+</body>
+</html>
