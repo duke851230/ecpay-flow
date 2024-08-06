@@ -4,10 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #aaa;
+        }
+    </style>
 </head>
 <body>
-    <h1>Payment Result</h1>
-    <p>Order ID: {{ data.MerchantTradeNo }}</p>
-    <p>Payment Status: {{ data.RtnMsg }}</p>
+    <div class="container">
+        <h1>Payment result & Thanks you page</h1>
+        <p>Order ID: {{ data.MerchantTradeNo }}</p>
+        <p class="{% if data.RtnCode == '1' %}success{% else %}error{% endif %}">Payment Status: {{ data.RtnMsg }}</p>
+    </div>
+    <footer>
+        &copy; 2024 Your Company. All rights reserved.
+    </footer>
 </body>
 </html>
