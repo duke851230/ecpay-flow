@@ -13,16 +13,13 @@ from django.conf import settings
 from .models import Order
 
 
-def _generate_check_mac_value(order_id: str, amount: str) -> str:
-    """ 這是我自己寫的方式。
-
-    因為我不太確定 ECPAY 除了用 HashKey 和 HashIV 外，還用了哪些參數來組成 check_mac_value。
-    故這邊只先用 OrderID 和 Amount 來實現。
-    """
+def _generate_check_mac_value(parameters: dict) -> str:
     key: str = settings.ECPAY_HASH_KEY
     iv: str = settings.ECPAY_HASH_IV
 
-    raw: str = f'HashKey={key}&OrderID={order_id}&Amount={amount}&HashIV={iv}'
+    ordered_params: dict = sorted(parameters.items())
+    raw: str = '&'.join([f'{k}={v}' for k, v in ordered_params])
+    raw: str = f'HashKey={key}&{raw}&HashIV={iv}'
     check_mac_value: str = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
 
     return check_mac_value
@@ -73,7 +70,8 @@ class ProcessPaymentView(View):
             'ChoosePayment': 'ALL',
             'EncryptType': 1,
         }
-        parameters['CheckMacValue'] = _generate_check_mac_value(order.order_id, order.amount)
+        parameters['CheckMacValue'] = _generate_check_mac_value(parameters)
+        print(f"ProcessPaymentView's {parameters['CheckMacValue']=}")
         
         # 返回支付表單數據
         return JsonResponse({'parameters': parameters, 'endpoint': endpoint}, status=200)
@@ -87,15 +85,27 @@ class PaymentCallbackView(View):
         data: dict = request.POST.dict()
         print(f"payment_callback's {data=}")
 
-        received_check_mac_value = data.get('CheckMacValue')
-        order_id: str = data.get('MerchantTradeNo')
-        amount: str = data.get('TradeAmt')
-        generated_check_mac_value = _generate_check_mac_value(order_id, amount)
+        received_check_mac_value: str = data.pop('CheckMacValue', None)
+        params_to_validate: dict = {
+            'MerchantID': data.get('MerchantID'),
+            'MerchantTradeNo': data.get('MerchantTradeNo'),
+            'PaymentDate': data.get('PaymentDate'),
+            'PaymentType': data.get('PaymentType'),
+            'PaymentTypeChargeFee': data.get('PaymentTypeChargeFee'),
+            'RtnCode': data.get('RtnCode'),
+            'RtnMsg': data.get('RtnMsg'),
+            'SimulatePaid': data.get('SimulatePaid'),
+            'TradeAmt': data.get('TradeAmt'),
+            'TradeDate': data.get('TradeDate'),
+            'TradeNo': data.get('TradeNo'),
+        }
+
+        generated_check_mac_value: str = _generate_check_mac_value(params_to_validate)
 
         print(f"In payment_callback, {received_check_mac_value=}, {generated_check_mac_value=}")
 
         if received_check_mac_value == generated_check_mac_value:
             return HttpResponse("1|OK")
         else:
-            raise Exception("Mac Value Error!!")
+            return HttpResponse("CheckMacValue Error", status=400)
 
