@@ -1,6 +1,8 @@
 import json
 import hashlib
 import datetime
+import collections
+import urllib.parse  
 
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -14,13 +16,28 @@ from .models import Order
 
 
 def _generate_check_mac_value(parameters: dict) -> str:
-    key: str = settings.ECPAY_HASH_KEY
-    iv: str = settings.ECPAY_HASH_IV
+    """
+    這邊是去抄 Python ecpay sdk 的 generate_check_value。
+    - https://github.com/ECPay/ECPayAIO_Python/blob/master/sdk/ecpay_payment_sdk.py
+    """
+    encrypt_type: int = int(parameters.get('EncryptType', 1))
 
-    ordered_params: dict = sorted(parameters.items())
+    ordered_params: dict = collections.OrderedDict(
+        sorted(parameters.items(), key=lambda k: k[0].lower())
+    )
     raw: str = '&'.join([f'{k}={v}' for k, v in ordered_params])
-    raw: str = f'HashKey={key}&{raw}&HashIV={iv}'
-    check_mac_value: str = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
+    raw = f'HashKey={settings.ECPAY_HASH_KEY}&{raw}&HashIV={settings.ECPAY_HASH_IV}'
+
+    safe_characters: str = '-_.!*()'
+    encoding_str: str = urllib.parse.quote_plus(str(raw), safe=safe_characters).lower()
+
+    check_mac_value: str = ''
+    if encrypt_type == 1:
+        check_mac_value = hashlib.sha256(
+            encoding_str.encode('utf-8')).hexdigest().upper()
+    elif encrypt_type == 0:
+        check_mac_value = hashlib.md5(
+            encoding_str.encode('utf-8')).hexdigest().upper()
 
     return check_mac_value
 
