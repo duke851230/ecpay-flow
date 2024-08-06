@@ -2,26 +2,27 @@ import json
 import hashlib
 import datetime
 
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.http.request import HttpRequest
 from django.http import JsonResponse, HttpResponse
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
 from django.conf import settings
 
 from .models import Order
-from .forms import OrderForm
 
 
-def _generate_check_mac_value(parameters: dict) -> str:
+def _generate_check_mac_value(order_id: str, amount: str) -> str:
+    """ 這是我自己寫的方式。
+
+    因為我不太確定 ECPAY 除了用 HashKey 和 HashIV 外，還用了哪些參數來組成 check_mac_value。
+    故這邊只先用 OrderID 和 Amount 來實現。
+    """
     key: str = settings.ECPAY_HASH_KEY
     iv: str = settings.ECPAY_HASH_IV
 
-    ordered_params: dict = sorted(parameters.items())
-    print(f"{ordered_params=}")
-
-    raw: str = '&'.join([f'{k}={v}' for k, v in ordered_params])
-    raw: str = f'HashKey={key}&{raw}&HashIV={iv}'
+    raw: str = f'HashKey={key}&OrderID={order_id}&Amount={amount}&HashIV={iv}'
     check_mac_value: str = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
 
     return check_mac_value
@@ -32,18 +33,22 @@ class CreateOrderView(View):
         payload: dict = json.loads(request_body)
         print(f"CreateOrderView's {payload=}")
 
-        form = OrderForm(payload)
-        if form.is_valid():
-            order = form.save()
+        amount: int = payload.get('amount')
+        order_id: str = "order{now_timestamp}".format(
+            now_timestamp=int(datetime.datetime.now().timestamp())
+        )
+
+        try:
+            order: Order = Order.objects.create(order_id=order_id, amount=amount)
             return JsonResponse(
-                {'order_id': order.order_id, 'amount': order.amount}, 
-                status=201
+                {'order_id': order.order_id, 'amount': order.amount}, status=201
             )
-        
-        return JsonResponse(form.errors, status=400)
+        except Exception as e:
+            print(str(e))
+            return HttpResponse(str(e), status=400)
 
 class ProcessPaymentView(View):
-    def post(self, request: HttpRequest, order_id: str):
+    def post(self, request: HttpRequest, order_id: str) -> HttpResponse:
         print(f"ProcessPaymentView's {order_id=}")
         order = Order.objects.get(order_id=order_id)
         merchant_id = settings.ECPAY_MERCHANT_ID
@@ -68,19 +73,24 @@ class ProcessPaymentView(View):
             'ChoosePayment': 'ALL',
             'EncryptType': 1,
         }
-        
-        parameters['CheckMacValue'] = _generate_check_mac_value(parameters)
+        parameters['CheckMacValue'] = _generate_check_mac_value(order.order_id, order.amount)
         
         # 返回支付表單數據
         return JsonResponse({'parameters': parameters, 'endpoint': endpoint}, status=200)
 
-@csrf_exempt
-def payment_callback(request: HttpRequest):
-    if request.method == "POST":
+class PaymentCallbackView(View):
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request: HttpRequest) -> HttpResponse:
         data: dict = request.POST.dict()
         print(f"payment_callback's {data=}")
-        received_check_mac_value = data.pop('CheckMacValue', None)
-        generated_check_mac_value = _generate_check_mac_value(data)
+
+        received_check_mac_value = data.get('CheckMacValue')
+        order_id: str = data.get('MerchantTradeNo')
+        amount: str = data.get('TradeAmt')
+        generated_check_mac_value = _generate_check_mac_value(order_id, amount)
 
         print(f"In payment_callback, {received_check_mac_value=}, {generated_check_mac_value=}")
 

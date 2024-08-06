@@ -66,7 +66,6 @@
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: JSON.stringify({
-                    order_id: "order" + Date.now().toString(),
                     amount: 10
                 })
             });
