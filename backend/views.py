@@ -17,7 +17,7 @@ from .models import Order
 
 def _generate_check_mac_value(parameters: dict) -> str:
     """
-    這邊是去抄 Python ecpay sdk 的 generate_check_value。
+    這邊是去參考 Python ecpay sdk 的 generate_check_value 函數。
     - https://github.com/ECPay/ECPayAIO_Python/blob/master/sdk/ecpay_payment_sdk.py
     """
     encrypt_type: int = int(parameters.get('EncryptType', 1))
@@ -25,7 +25,7 @@ def _generate_check_mac_value(parameters: dict) -> str:
     ordered_params: dict = collections.OrderedDict(
         sorted(parameters.items(), key=lambda k: k[0].lower())
     )
-    raw: str = '&'.join([f'{k}={v}' for k, v in ordered_params])
+    raw: str = '&'.join([f'{k}={v}' for k, v in ordered_params.items()])
     raw = f'HashKey={settings.ECPAY_HASH_KEY}&{raw}&HashIV={settings.ECPAY_HASH_IV}'
 
     safe_characters: str = '-_.!*()'
@@ -42,6 +42,9 @@ def _generate_check_mac_value(parameters: dict) -> str:
     return check_mac_value
 
 class CreateOrderView(View):
+    """
+    這邊為了方便，只紀錄總金額，並進到創建訂單步驟。
+    """
     def post(self, request: HttpRequest) -> HttpResponse:
         request_body: str = request.body.decode('utf-8')
         payload: dict = json.loads(request_body)
@@ -63,21 +66,20 @@ class CreateOrderView(View):
 
 class ProcessPaymentView(View):
     def post(self, request: HttpRequest, order_id: str) -> HttpResponse:
-        print(f"ProcessPaymentView's {order_id=}")
-        order = Order.objects.get(order_id=order_id)
-        merchant_id = settings.ECPAY_MERCHANT_ID
-        endpoint = 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'
-        return_url = request.build_absolute_uri(reverse('payment_callback'))
-        order_result_url = request.build_absolute_uri(reverse('payment_result'))
-        print(f"ProcessPaymentView's {return_url=}")
-        print(f"ProcessPaymentView's {order_result_url=}")
+        order: Order = Order.objects.get(order_id=order_id)
+        merchant_id: str = settings.ECPAY_MERCHANT_ID
+        endpoint: str = 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'
+        # request.build_absolute_uri 會自動根據當前的 Domain 幫我組出 URL
+        return_url: str = request.build_absolute_uri(reverse('payment_callback'))
+        order_result_url: str = request.build_absolute_uri(reverse('payment_result'))
+        print(f"ProcessPaymentView's {return_url=} {order_result_url=}")
         
-        # 綠界金流的基本參數
+        # 綠界金流的基本參數（GPT 給的，比 SDK 給的範例少很多參數，之後真的要用可能要參考技術文件）
         parameters = {
             'MerchantID': merchant_id,
             'MerchantTradeNo': order.order_id,
             'MerchantTradeDate': datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'),
-            'PaymentType': 'aio',
+            'PaymentType': 'aio',  # All in one 的方式
             'TotalAmount': order.amount,
             'TradeDesc': 'Test Order',
             'ItemName': 'Test Item',
@@ -85,13 +87,14 @@ class ProcessPaymentView(View):
             'OrderResultURL': order_result_url,
             'ClientBackURL': order_result_url,
             'ChoosePayment': 'ALL',
-            'EncryptType': 1,
+            'EncryptType': 1,  # 使用 sha256
         }
         parameters['CheckMacValue'] = _generate_check_mac_value(parameters)
-        print(f"ProcessPaymentView's {parameters['CheckMacValue']=}")
-        
-        # 返回支付表單數據
-        return JsonResponse({'parameters': parameters, 'endpoint': endpoint}, status=200)
+
+        return JsonResponse(
+            {'parameters': parameters, 'endpoint': endpoint}, 
+            status=200
+        )
 
 class PaymentCallbackView(View):
     @method_decorator(csrf_exempt)
