@@ -107,22 +107,8 @@ class PaymentCallbackView(View):
         print(f"payment_callback's {data=}")
 
         received_check_mac_value: str = data.pop('CheckMacValue', None)
-        params_to_validate: dict = {
-            'MerchantID': data.get('MerchantID'),
-            'MerchantTradeNo': data.get('MerchantTradeNo'),
-            'PaymentDate': data.get('PaymentDate'),
-            'PaymentType': data.get('PaymentType'),
-            'PaymentTypeChargeFee': data.get('PaymentTypeChargeFee'),
-            'RtnCode': data.get('RtnCode'),
-            'RtnMsg': data.get('RtnMsg'),
-            'SimulatePaid': data.get('SimulatePaid'),
-            'TradeAmt': data.get('TradeAmt'),
-            'TradeDate': data.get('TradeDate'),
-            'TradeNo': data.get('TradeNo'),
-        }
-
-        generated_check_mac_value: str = _generate_check_mac_value(params_to_validate)
-
+        # 將除了 CheckMacValue 外的欄位拿去計算出 check_mac_value 來比對
+        generated_check_mac_value: str = _generate_check_mac_value(data)
         print(f"In payment_callback, {received_check_mac_value=}, {generated_check_mac_value=}")
 
         if received_check_mac_value == generated_check_mac_value:
