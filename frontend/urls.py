@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import IndexView, payment_result
+from .views import index, payment_result
 
 urlpatterns = [
-    path('', IndexView.as_view(), name='index'),
+    path('', index, name='index'),
     path('payment_result/', payment_result, name='payment_result'),
 ]
