@@ -97,7 +97,8 @@ class ProcessPaymentView(View):
         )
 
 class PaymentCallbackView(View):
-    # @method_decorator(csrf_exempt)
+    # 如果沒有排除 CSRF 驗證，綠界呼叫 Callback 時會得到 403 Forbidden
+    @method_decorator(csrf_exempt)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
