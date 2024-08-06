@@ -7,25 +7,27 @@ from django.http import JsonResponse, HttpResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
+from django.conf import settings
 
 from .models import Order
 from .forms import OrderForm
 
 
-def _generate_check_mac_value(parameters):
-    key = 'pwFHCqoQZGmho4w6'
-    iv = 'EkRm7iFT261dpevs'
+def _generate_check_mac_value(parameters: dict) -> str:
+    key: str = settings.ECPAY_HASH_KEY
+    iv: str = settings.ECPAY_HASH_IV
 
-    ordered_params = sorted(parameters.items())
+    ordered_params: dict = sorted(parameters.items())
     print(f"{ordered_params=}")
-    raw = '&'.join([f'{k}={v}' for k, v in ordered_params])
-    raw = f'HashKey={key}&{raw}&HashIV={iv}'
-    check_mac_value = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
+
+    raw: str = '&'.join([f'{k}={v}' for k, v in ordered_params])
+    raw: str = f'HashKey={key}&{raw}&HashIV={iv}'
+    check_mac_value: str = hashlib.sha256(raw.encode('utf-8')).hexdigest().upper()
+
     return check_mac_value
 
-
 class CreateOrderView(View):
-    def post(self, request: HttpRequest):
+    def post(self, request: HttpRequest) -> HttpResponse:
         request_body: str = request.body.decode('utf-8')
         payload: dict = json.loads(request_body)
         print(f"CreateOrderView's {payload=}")
@@ -44,7 +46,7 @@ class ProcessPaymentView(View):
     def post(self, request: HttpRequest, order_id: str):
         print(f"ProcessPaymentView's {order_id=}")
         order = Order.objects.get(order_id=order_id)
-        merchant_id = '3002607'
+        merchant_id = settings.ECPAY_MERCHANT_ID
         endpoint = 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'
         return_url = request.build_absolute_uri(reverse('payment_callback'))
         order_result_url = request.build_absolute_uri(reverse('payment_result'))

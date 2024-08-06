@@ -125,3 +125,9 @@ STATIC_URL = '/static/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ECPAY Settings
+ECPAY_MERCHANT_ID: str = '3002607'
+ECPAY_HASH_KEY: str = 'pwFHCqoQZGmho4w6'
+ECPAY_HASH_IV: str = 'EkRm7iFT261dpevs'
